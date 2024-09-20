@@ -1,6 +1,8 @@
 # Monero Wallet Address Generator
 
-This Rust project allows you to generate Monero wallet addresses from 25-word seed phrases and private keys using the `curve25519-dalek` and `base58-monero` libraries. It only supports both mainnet and stagenet **Standard** addresses by specifying the network type.
+This Rust project allows you to generate Monero wallet addresses from 25-word seed phrases and private keys using
+the `curve25519-dalek` and `base58-monero` libraries. It only supports both mainnet and stagenet **Standard** addresses
+by specifying the network type.
 
 ## Features
 
@@ -12,7 +14,8 @@ This Rust project allows you to generate Monero wallet addresses from 25-word se
 
 ## Usage
 
-You can generate a new Monero address by either using random entropy to generate a seed or by providing an existing 25-word seed phrase.
+You can generate a new Monero address by either using random entropy to generate a seed or by providing an existing
+25-word seed phrase.
 
 ### Generate a New Monero Address
 
@@ -22,10 +25,11 @@ To generate a new Monero address along with a 25-word seed phrase:
 use monero_wallet_generator::{Seed, Network, MainNet};
 
 fn main() {
-    let seed = Seed::generate();  // Generate a new seed
-    let address = seed.get_address::<MainNet>();  // Generate address for mainnet
-    
-    println!("Seed words: {}", seed.to_string());
+    let seed = Seed::generate().unwrap();  // Generate a new seed
+    let address = seed.get_address::<MainNet>().unwrap();  // Generate address for mainnet
+    let seed_words = seed.seed_words().unwrap();  // Get seed words
+
+    println!("Seed words: {}", seed_words.join(" "));
     println!("Monero Address: {}", address);
 }
 ```
@@ -41,7 +45,7 @@ fn main() {
     let seed_words = "razor obnoxious entrance inroads saxophone among onward revamp scoop boxes point fawns rigid army badge icing frying voted biggest layout dehydrate acidic reinvest school inroads";
     let seed = Seed::from_seed_words(seed_words).unwrap();  // Restore from seed words
     let address = seed.get_address::<MainNet>().unwrap();  // Generate mainnet address
-    
+
     println!("Recovered Address: {}", address);
 }
 ```
@@ -57,7 +61,7 @@ fn main() {
     let seed_words = "razor obnoxious entrance inroads saxophone among onward revamp scoop boxes point fawns rigid army badge icing frying voted biggest layout dehydrate acidic reinvest school inroads";
     let seed = Seed::from_seed_words(seed_words).unwrap();
     let address = seed.get_address::<Stagenet>().unwrap();
-    
+
     println!("Recovered Address (Stagenet): {}", address);
 }
 ```
