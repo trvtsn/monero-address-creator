@@ -22,7 +22,7 @@
 
 mod error;
 mod mnemonics;
-mod network;
+pub mod network;
 
 use base58_monero::base58;
 use curve25519_dalek::{constants::ED25519_BASEPOINT_TABLE, scalar::Scalar};
