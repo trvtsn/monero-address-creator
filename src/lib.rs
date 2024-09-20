@@ -38,9 +38,7 @@ use sha3::{Digest, Keccak256};
 
 #[derive(Debug)]
 pub struct Seed {
-    pub inner: [u8; 32],
-    spend_key: PrivateKey,
-    view_key: PrivateKey,
+    inner: [u8; 32],
 }
 
 const TRIM_LENGTH: usize = 3;
@@ -63,6 +61,14 @@ impl PrivateKey {
 }
 
 impl Seed {
+    pub fn new(inner: [u8; 32]) -> Self {
+        Self { inner }
+    }
+
+    pub fn inner(&self) -> &[u8; 32] {
+        &self.inner
+    }
+
     pub fn generate() -> Result<Seed, Error> {
         let entropy = generate_entropy(); // Generate 32 random bytes
         let mut words = Vec::with_capacity(25);
@@ -143,16 +149,15 @@ impl Seed {
         let mut seed = [0u8; 32];
         seed.copy_from_slice(&buffer);
 
-        let mut s = [0u8; 32];
-        s.copy_from_slice(seed.as_slice());
-        let spend_key = Scalar::from_bytes_mod_order(s).to_bytes();
-        let view_key = Scalar::from_bytes_mod_order(keccak256(&spend_key)).to_bytes();
+        Ok(Self { inner: seed })
+    }
 
-        Ok(Self {
-            inner: seed,
-            spend_key: PrivateKey(spend_key),
-            view_key: PrivateKey(view_key),
-        })
+    fn private_spend_key(&self) -> PrivateKey {
+        PrivateKey(Scalar::from_bytes_mod_order(self.inner).to_bytes())
+    }
+
+    fn private_view_key(&self) -> PrivateKey {
+        PrivateKey(Scalar::from_bytes_mod_order(keccak256(&self.private_spend_key().0)).to_bytes())
     }
 
     pub fn seed_words(&self) -> Result<Vec<String>, Error> {
@@ -197,8 +202,8 @@ impl Seed {
 
     pub fn to_address<N: Network>(&self) -> Result<String, Error> {
         let mut bytes = vec![N::network_byte()];
-        bytes.extend_from_slice(&self.spend_key.to_public_key());
-        bytes.extend_from_slice(&self.view_key.to_public_key());
+        bytes.extend_from_slice(&self.private_spend_key().to_public_key());
+        bytes.extend_from_slice(&self.private_view_key().to_public_key());
 
         let checksum_bytes = &bytes[0..65];
         let checksum = &keccak256(checksum_bytes);
