@@ -33,5 +33,5 @@ pub enum Error {
     #[error("We didn't generate enough seed words")]
     DidntGenerateEnoughWords,
     #[error("Failed to convert from int")]
-    TryFromIntError(#[from] std::num::TryFromIntError),
+    TryFromInt(#[from] std::num::TryFromIntError),
 }

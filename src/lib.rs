@@ -25,6 +25,10 @@ mod mnemonics;
 pub mod network;
 
 use base58_monero::base58;
+use crc::{
+    crc32::{Digest as CrcDigest, IEEE},
+    Hasher32,
+};
 use curve25519_dalek::{constants::ED25519_BASEPOINT_TABLE, scalar::Scalar};
 use error::Error;
 use mnemonics::{find_word_index, ENGLISH};
@@ -59,7 +63,7 @@ impl PrivateKey {
 }
 
 impl Seed {
-    pub fn generate() -> Result<(Vec<String>, Self), Error> {
+    pub fn generate() -> Result<Seed, Error> {
         let entropy = generate_entropy(); // Generate 32 random bytes
         let mut words = Vec::with_capacity(25);
         let length = ENGLISH.len();
@@ -87,13 +91,17 @@ impl Seed {
             return Err(Error::DidntGenerateEnoughWords);
         }
 
-        // Step 3: Calculate the checksum and add the checksum word
-        let checksum_hash = keccak256(&entropy);
-        let checksum_index = (checksum_hash[0] as usize) % length;
-        let checksum_word = ENGLISH[checksum_index].to_string();
-        words.push(checksum_word); // Add checksum word
+        let trimmed_seed_words = words
+            .iter()
+            .map(|w| w.chars().take(TRIM_LENGTH).collect())
+            .collect::<Vec<String>>();
 
-        Ok((words.clone(), Self::from_seed_words(&words)?))
+        let mut digest = CrcDigest::new(IEEE);
+        digest.write(trimmed_seed_words.concat().as_bytes());
+        let last_word = words[(digest.sum32() % words.len() as u32) as usize].clone();
+        words.push(last_word);
+
+        Self::from_seed_words(&words)
     }
 
     pub fn from_seed_words(seed_words: &[String]) -> Result<Self, Error> {
@@ -145,6 +153,46 @@ impl Seed {
             spend_key: PrivateKey(spend_key),
             view_key: PrivateKey(view_key),
         })
+    }
+
+    pub fn seed_words(&self) -> Result<Vec<String>, Error> {
+        let seed = &Scalar::from_bytes_mod_order(self.inner).to_bytes();
+
+        // Reverse the endian in 4 byte intervals
+        let length = 1626;
+        let inputs = seed
+            .chunks(4)
+            .map(|chunk| {
+                let mut input: [u8; 4] = [0u8; 4];
+                input.copy_from_slice(chunk);
+
+                u32::from_le_bytes(input)
+            })
+            .collect::<Vec<u32>>();
+
+        // Generate three words from every 4 byte interval
+        let mut seed_words = vec![];
+        for index in inputs {
+            let w1 = index % length;
+            let w2 = ((index / length) + w1) % length;
+            let w3 = (((index / length) / length) + w2) % length;
+
+            seed_words.push(ENGLISH.get(w1 as usize).unwrap().to_string());
+            seed_words.push(ENGLISH.get(w2 as usize).unwrap().to_string());
+            seed_words.push(ENGLISH.get(w3 as usize).unwrap().to_string());
+        }
+
+        let trimmed_seed_words = seed_words
+            .iter()
+            .map(|w| w.chars().take(TRIM_LENGTH).collect())
+            .collect::<Vec<String>>();
+
+        let mut digest = CrcDigest::new(IEEE);
+        digest.write(trimmed_seed_words.concat().as_bytes());
+        let last_word = seed_words[(digest.sum32() % seed_words.len() as u32) as usize].clone();
+        seed_words.push(last_word);
+
+        Ok(seed_words)
     }
 
     pub fn to_address<N: Network>(&self) -> Result<String, Error> {
@@ -221,14 +269,41 @@ mod tests {
 
     #[test]
     fn generates_new_seeds_with_address() {
-        #[rustfmt::skip]
-        let (words, seed) = Seed::generate().unwrap();
-
+        let seed = Seed::generate().unwrap();
         let address = seed.to_address::<Stagenet>().unwrap();
 
-        let new_seed = Seed::from_seed_words(&words).unwrap();
+        let new_seed = Seed::from_seed_words(&seed.seed_words().unwrap()).unwrap();
         let new_address = new_seed.to_address::<Stagenet>().unwrap();
 
         assert_eq!(address, new_address);
+    }
+
+    #[test]
+    fn can_recreate_seed_words_from_seed() {
+        #[rustfmt::skip]
+        let seed_words = [
+            "dauntless", "unwind", "gourmet", "timber", "fugitive", "request", "gourmet", "devoid",
+            "mechanic", "snug", "ornament", "equip", "puck", "puck", "water", "nugget", "maze",
+            "dude", "arises", "hectare", "smog", "solved", "dummy", "enmity", "ornament"
+        ];
+        let seed_words = seed_words.iter().map(|w| w.to_string()).collect::<Vec<String>>();
+
+        let seed = Seed::from_seed_words(&seed_words).unwrap();
+        assert_eq!(seed_words, seed.seed_words().unwrap());
+    }
+
+    #[test]
+    fn generates_same_seeds() {
+        let seed1 = Seed::generate().unwrap();
+        let words1 = seed1.seed_words().unwrap();
+
+        let seed2 = Seed::from_seed_words(&words1).unwrap();
+        let words2 = seed2.seed_words().unwrap();
+
+        assert_eq!(words1, words2);
+        assert_eq!(
+            seed1.to_address::<Stagenet>().unwrap(),
+            seed2.to_address::<Stagenet>().unwrap()
+        );
     }
 }
