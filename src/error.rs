@@ -32,4 +32,6 @@ pub enum Error {
     BadEncoding(String),
     #[error("We didn't generate enough seed words")]
     DidntGenerateEnoughWords,
+    #[error("Failed to convert from int")]
+    TryFromIntError(#[from] std::num::TryFromIntError),
 }

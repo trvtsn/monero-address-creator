@@ -129,7 +129,7 @@ impl Seed {
             let n = length;
             let x = w1 + n * (((n - w1) + w2) % n) + n * n * (((n - w2) + w3) % n);
 
-            buffer.extend_from_slice(&u32::to_le_bytes(x as u32));
+            buffer.extend_from_slice(&u32::to_le_bytes(u32::try_from(x)?));
         }
 
         let mut seed = [0u8; 32];
