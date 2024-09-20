@@ -34,7 +34,7 @@ use sha3::{Digest, Keccak256};
 
 #[derive(Debug)]
 pub struct Seed {
-    inner: [u8; 32],
+    pub inner: [u8; 32],
     spend_key: PrivateKey,
     view_key: PrivateKey,
 }
