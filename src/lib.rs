@@ -33,7 +33,7 @@ use rand::{rngs::OsRng, RngCore};
 use sha3::{Digest, Keccak256};
 
 #[derive(Debug)]
-struct Seed {
+pub struct Seed {
     inner: [u8; 32],
     spend_key: PrivateKey,
     view_key: PrivateKey,
